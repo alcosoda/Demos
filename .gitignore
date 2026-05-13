@@ -1,1 +1,1 @@
-(empty)
+Nothing needs to be added to .gitignore since only a Python source file (smart_shop_bot.py) was added, which is not a build artifact, dependency, or temporary file.
