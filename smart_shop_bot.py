@@ -88,9 +88,26 @@ class ShopTools:
 TOOLS = ShopTools(CATALOG)
 
 def search_products(query: str = "", category: str | None = None, brand: str | None = None, max_price: float | None = None, sort_by: str | None = None) -> list:
+    """
+    Search for products in the catalog.
+    Args:
+        query: Text search query (e.g., 'wireless headphones').
+        category: Product category (e.g., 'mouse', 'keyboard').
+        brand: Brand name (e.g., 'Sony', 'Logitech').
+        max_price: Maximum price limit.
+        sort_by: Sorting option ('price_asc', 'rating_desc').
+    Returns: List of matching products.
+    """
     return TOOLS.search_products(query=query, category=category, brand=brand, max_price=max_price, sort_by=sort_by)
 
 def add_to_cart(product_id: str, quantity: int = 1) -> dict:
+    """
+    Add a product to the shopping cart by its ID.
+    Args:
+        product_id: The ID of the product to add (e.g., 'p1').
+        quantity: Number of items to add.
+    Returns: Status of the operation.
+    """
     # Заглушка, реальная логика будет в боте с передачей состояния корзины
     return {"ok": False, "error": "Use ShopTools.add_to_cart with state"}
 
