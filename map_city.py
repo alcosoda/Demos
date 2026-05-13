@@ -2,42 +2,44 @@ import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
 from geopy.geocoders import Nominatim
 
-def get_city_coordinates(city_name):
-    """Получает координаты города по названию."""
-    geolocator = Nominatim(user_agent="city_mapper")
+def get_city_location(city_name):
+    locator = Nominatim(user_agent="my_geocoder")
     try:
-        location = geolocator.geocode(city_name)
+        location = locator.geocode(city_name)
         if location:
             return location.latitude, location.longitude
         else:
             return None, None
     except Exception as e:
-        print(f"Ошибка при поиске города: {e}")
+        print(f"Ошибка поиска: {e}")
         return None, None
 
-def plot_city_on_map(lat, lon, city_name):
-    """Рисует карту мира с точкой города."""
-    fig = plt.figure(figsize=(10, 6))
-    ax = fig.add_subplot(1, 1, 1, projection=ccrs.PlateCarree())
+def plot_city(city_name, lat, lon):
+    fig = plt.figure(figsize=(10, 8))
+    ax = plt.axes(projection=ccrs.PlateCarree())
     
-    # Добавляем границы стран и океаны
+    # Добавляем карту мира
     ax.stock_img()
     
     # Рисуем точку города
-    ax.plot(lon, lat, marker='o', color='red', markersize=15, transform=ccrs.PlateCarree(), label=city_name)
+    ax.plot(lon, lat, 'ro', markersize=15, transform=ccrs.Geodetic(), label=city_name)
     
-    # Добавляем легенду и заголовок
-    ax.legend(loc='upper left')
-    plt.title(f"Город: {city_name}\nКоординаты: {lat:.4f}, {lon:.4f}")
+    # Добавляем подпись
+    plt.title(f"Город: {city_name}")
+    plt.legend()
     
-    plt.show()
+    # Сохраняем в файл вместо показа окна
+    output_file = "map.png"
+    plt.savefig(output_file)
+    print(f"Карта сохранена в файл: {output_file}")
+    print("Открой этот файл в панели файлов слева (в VS Code), чтобы увидеть результат.")
 
 if __name__ == "__main__":
-    city = input("Введите название города на английском: ")
-    lat, lon = get_city_coordinates(city)
+    city = input("Введите название города на английском (например, London): ")
+    lat, lon = get_city_location(city)
     
-    if lat is not None and lon is not None:
-        print(f"Найден город: {city} ({lat}, {lon})")
-        plot_city_on_map(lat, lon, city)
+    if lat and lon:
+        print(f"Координаты найдены: Широта {lat}, Долгота {lon}")
+        plot_city(city, lat, lon)
     else:
-        print(f"Город '{city}' не найден. Проверьте правильность названия.")
+        print("Город не найден. Проверьте правильность написания.")
