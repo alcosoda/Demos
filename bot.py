@@ -13,7 +13,7 @@ import cartopy.feature as cfeature
 logging.basicConfig(level=logging.INFO)
 
 # Получаем токен из переменных окружения
-TOKEN = os.getenv("BOT_TOKEN")
+TOKEN = "8957701441:AAG2YlMpKl6IhlSTfJAjcVkqxBErUpVre8Q"
 
 if not TOKEN:
     print("Ошибка: Не найден токен бота. Установите переменную окружения BOT_TOKEN.")
