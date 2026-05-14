@@ -164,7 +164,7 @@ class ProsAgent:
     def run(self, ctx: AgentContext, tracer: ToolTracer) -> AgentContext:
         ctx.pros = {}
         for prod in ctx.candidates:
-            sys_msg = SystemMessage(content="List 1 sentence of main pros for this product.")
+            sys_msg = SystemMessage(content="Перечисли 1 предложение с основными преимуществами этого продукта. Отвечай на русском языке.")
             user_msg = HumanMessage(content=json.dumps(prod, ensure_ascii=False))
             ai_msg = llm_chat([sys_msg, user_msg])
             ctx.pros[prod["id"]] = ai_msg.content
@@ -175,7 +175,7 @@ class ConsAgent:
     def run(self, ctx: AgentContext, tracer: ToolTracer) -> AgentContext:
         ctx.cons = {}
         for prod in ctx.candidates:
-            sys_msg = SystemMessage(content="List 1 sentence of main cons for this product.")
+            sys_msg = SystemMessage(content="Перечисли 1 предложение с основными недостатками этого продукта. Отвечай на русском языке.")
             user_msg = HumanMessage(content=json.dumps(prod, ensure_ascii=False))
             ai_msg = llm_chat([sys_msg, user_msg])
             ctx.cons[prod["id"]] = ai_msg.content
@@ -289,10 +289,9 @@ async def handle_user_request(message: types.Message, state: FSMContext):
     user_id = message.from_user.id
     user_query = message.text
     
-    # Если пользователь в состоянии ожидания выбора и отправляет текст - игнорируем (т.к. кнопки убраны)
-    current_state = await state.get_state()
-    if current_state == ShopStates.waiting_for_choice:
-        return
+    # Сбрасываем состояние перед обработкой нового запроса
+    await state.clear()
+    user_contexts[user_id] = None
     
     # Send progress messages
     progress_msg = await message.answer("🔍 Ищу подходящие товары...")
