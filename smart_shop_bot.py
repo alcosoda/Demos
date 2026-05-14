@@ -190,9 +190,22 @@ class RankerAgent:
         if not candidates:
             ctx.best = None
             return ctx
-        candidates = sorted(candidates, key=lambda x: (-x["rating"], x["price"]))
+        
+        # Определяем критерий сортировки на основе запроса пользователя
+        query_lower = ctx.query.lower()
+        
+        # Сортировка по цене (возрастание) - для запросов типа "самый дешевый", "недорогой"
+        if any(word in query_lower for word in ["дешев", "недорог", "бюджет", "минимал", "lowest", "cheapest"]):
+            candidates = sorted(candidates, key=lambda x: (x["price"], -x["rating"]))
+        # Сортировка по рейтингу (убывание) - для запросов типа "лучший", "топ", "highest rated"
+        elif any(word in query_lower for word in ["лучш", "топ", "best", "top", "rating", "рейтинг"]):
+            candidates = sorted(candidates, key=lambda x: (-x["rating"], x["price"]))
+        # По умолчанию - баланс цены и рейтинга
+        else:
+            candidates = sorted(candidates, key=lambda x: (-x["rating"], x["price"]))
+        
         ctx.best = candidates[0]
-        tracer.record("rank_candidates", {"candidates": [p["id"] for p in candidates]}, ctx.best)
+        tracer.record("rank_candidates", {"candidates": [p["id"] for p in candidates], "sort_criteria": "price" if "дешев" in query_lower else "rating"}, ctx.best)
         return ctx
 
 class CoordinatorAgent:
@@ -270,29 +283,16 @@ async def cmd_start(message: types.Message):
     if os.path.exists(catalog_file):
         os.remove(catalog_file)
 
-@dp.message(ShopStates.waiting_for_choice, F.text.in_(["Подходит", "Не подходит"]))
-async def process_choice(message: types.Message, state: FSMContext):
-    user_id = message.from_user.id
-    data = await state.get_data()
-    best_product = data.get("best_product")
-    
-    if message.text == "Подходит" and best_product:
-        cart = user_carts.get(user_id, [])
-        result = TOOLS.add_to_cart(cart, best_product['id'], 1)
-        user_carts[user_id] = cart
-        if result['ok']:
-            await message.answer(f"✅ Товар '{best_product['name']}' добавлен в корзину!")
-        else:
-            await message.answer("❌ Ошибка при добавлении в корзину.")
-    else:
-        await message.answer("❌ Хорошо, давайте поищем что-то другое. Напишите новый запрос.")
-    
-    await state.clear()
 
 @dp.message(~CommandStart())
 async def handle_user_request(message: types.Message, state: FSMContext):
     user_id = message.from_user.id
     user_query = message.text
+    
+    # Если пользователь в состоянии ожидания выбора и отправляет текст - игнорируем (т.к. кнопки убраны)
+    current_state = await state.get_state()
+    if current_state == ShopStates.waiting_for_choice:
+        return
     
     # Send progress messages
     progress_msg = await message.answer("🔍 Ищу подходящие товары...")
@@ -328,8 +328,7 @@ async def handle_user_request(message: types.Message, state: FSMContext):
         
         # Create keyboard
         kb = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="✅ Подходит", callback_data="accept")],
-            [InlineKeyboardButton(text="❌ Не подходит", callback_data="reject")]
+            [InlineKeyboardButton(text="🛒 Добавить в корзину", callback_data="accept")]
         ])
         
         await progress_msg.edit_text(response_text, parse_mode="HTML", reply_markup=kb)
@@ -341,7 +340,7 @@ async def handle_user_request(message: types.Message, state: FSMContext):
         logging.error(e)
         await progress_msg.edit_text(f"❌ Произошла ошибка: {str(e)}")
 
-@dp.callback_query(F.data.in_(["accept", "reject"]))
+@dp.callback_query(F.data == "accept")
 async def process_callback(callback: types.CallbackQuery, state: FSMContext):
     user_id = callback.from_user.id
     await callback.answer()
@@ -353,7 +352,7 @@ async def process_callback(callback: types.CallbackQuery, state: FSMContext):
 
     best_product = context.get("best_product")
     
-    if callback.data == "accept" and best_product:
+    if best_product:
         cart = user_carts.get(user_id, [])
         result = TOOLS.add_to_cart(cart, best_product['id'], 1)
         user_carts[user_id] = cart
@@ -366,7 +365,7 @@ async def process_callback(callback: types.CallbackQuery, state: FSMContext):
         else:
             await callback.message.answer("❌ Ошибка при добавлении.", reply_markup=None)
     else:
-        await callback.message.answer("❌ Хорошо, напишите новый запрос, чтобы найти другой товар.", reply_markup=None)
+        await callback.message.answer("❌ Ошибка: товар не найден.", reply_markup=None)
     
     user_contexts[user_id] = None
     await state.clear()
