@@ -358,7 +358,11 @@ async def process_callback(callback: types.CallbackQuery, state: FSMContext):
         result = TOOLS.add_to_cart(cart, best_product['id'], 1)
         user_carts[user_id] = cart
         if result['ok']:
-            await callback.message.answer(f"✅ Товар '{best_product['name']}' добавлен в корзину!", reply_markup=None)
+            # Keyboard with View Cart button
+            kb = InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="🛒 Посмотреть корзину", callback_data="view_cart")]
+            ])
+            await callback.message.answer(f"✅ Товар '{best_product['name']}' добавлен в корзину!", reply_markup=kb)
         else:
             await callback.message.answer("❌ Ошибка при добавлении.", reply_markup=None)
     else:
@@ -366,6 +370,58 @@ async def process_callback(callback: types.CallbackQuery, state: FSMContext):
     
     user_contexts[user_id] = None
     await state.clear()
+
+@dp.callback_query(F.data == "view_cart")
+async def process_view_cart_callback(callback: types.CallbackQuery):
+    user_id = callback.from_user.id
+    await callback.answer()
+    await show_cart(callback.message, user_id)
+
+@dp.message(CommandStart())
+async def cmd_start(message: types.Message):
+    user_id = message.from_user.id
+    user_carts[user_id] = []
+    
+    catalog_file = create_catalog_image()
+    await message.answer_photo(
+        photo=types.FSInputFile(catalog_file),
+        caption="👋 Привет! Это Smart Shop Bot.\n\nВот наш ассортимент. Напиши мне, что ты ищешь, например:\n'Мне нужны лучшие наушники до 260$'\n'Найди беспроводную мышь и добавь в корзину'\n\nИспользуй команду /cart, чтобы посмотреть корзину."
+    )
+    if os.path.exists(catalog_file):
+        os.remove(catalog_file)
+
+@dp.message(Command("cart"))
+async def cmd_cart(message: types.Message):
+    user_id = message.from_user.id
+    await show_cart(message, user_id)
+
+async def show_cart(message: types.Message, user_id: int):
+    cart = user_carts.get(user_id, [])
+    if not cart:
+        await message.answer("🛒 Ваша корзина пуста.")
+        return
+    
+    total = 0
+    items_text = "🛒 <b>Ваша корзина:</b>\n\n"
+    for item in cart:
+        item_total = item['price'] * item['quantity']
+        total += item_total
+        items_text += f"• {item['name']} x{item['quantity']} — ${item_total}\n"
+    
+    items_text += f"\n<b>Итого: ${total}</b>"
+    
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🧹 Очистить корзину", callback_data="clear_cart")]
+    ])
+    
+    await message.answer(items_text, parse_mode="HTML", reply_markup=kb)
+
+@dp.callback_query(F.data == "clear_cart")
+async def process_clear_cart(callback: types.CallbackQuery):
+    user_id = callback.from_user.id
+    user_carts[user_id] = []
+    await callback.answer("Корзина очищена!")
+    await callback.message.edit_text("🛒 Корзина очищена.")
 
 async def main():
     await dp.start_polling(bot)
